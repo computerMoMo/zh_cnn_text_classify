@@ -8,6 +8,8 @@ import os
 import word2vec_helpers
 import time
 import pickle
+import codecs
+import jieba
 
 def load_data_and_labels(input_text_file, input_label_file, num_labels):
     x_text = read_and_clean_zh_file(input_text_file)
@@ -20,8 +22,8 @@ def load_positive_negative_data_files(positive_data_file, negative_data_file):
     Returns split sentences and labels.
     """
     # Load data from files
-    positive_examples = read_and_clean_zh_file(positive_data_file)
-    negative_examples = read_and_clean_zh_file(negative_data_file)
+    positive_examples = read_and_clean_zh_file(positive_data_file, "pos_out.txt")
+    negative_examples = read_and_clean_zh_file(negative_data_file, "neg_out.txt")
     # Combine data
     x_text = positive_examples + negative_examples
     # Generate labels
@@ -49,15 +51,15 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
     num_batches_per_epoch = int((data_size - 1) / batch_size) + 1
     for epoch in range(num_epochs):
         if shuffle:
-	    # Shuffle the data at each epoch
-	    shuffle_indices = np.random.permutation(np.arange(data_size))
-	    shuffled_data = data[shuffle_indices]
-	else:
-	    shuffled_data = data
-	for batch_num in range(num_batches_per_epoch):
-	    start_idx = batch_num * batch_size
-	    end_idx = min((batch_num + 1) * batch_size, data_size)
-	    yield shuffled_data[start_idx : end_idx]
+            # Shuffle the data at each epoch
+            shuffle_indices = np.random.permutation(np.arange(data_size))
+            shuffled_data = data[shuffle_indices]
+        else:
+            shuffled_data = data
+        for batch_num in range(num_batches_per_epoch):
+            start_idx = batch_num * batch_size
+            end_idx = min((batch_num + 1) * batch_size, data_size)
+            yield shuffled_data[start_idx: end_idx]
 
 def test():
     # Test clean_str
@@ -76,16 +78,18 @@ def mkdir_if_not_exist(dirpath):
     if not os.path.exists(dirpath):
         os.mkdir(dirpath)
 
+
 def seperate_line(line):
-    return ''.join([word + ' ' for word in line])
+    word_list = jieba.lcut(line)
+    return ''.join([word + ' ' for word in word_list])
 
 def read_and_clean_zh_file(input_file, output_cleaned_file = None):
     lines = list(open(input_file, "r").readlines())
-    lines = [clean_str(seperate_line(line.decode('utf-8'))) for line in lines]
+    lines = [clean_str(seperate_line(line)) for line in lines]
     if output_cleaned_file is not None:
-        with open(output_cleaned_file, 'w') as f:
+        with codecs.open(output_cleaned_file, mode='w', encoding='utf-8') as f:
             for line in lines:
-                f.write((line + '\n').encode('utf-8'))
+                f.write((line + '\n'))
     return lines
 
 def clean_str(string):
@@ -93,7 +97,7 @@ def clean_str(string):
     Tokenization/string cleaning for all datasets except for SST.
     Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
     """
-    string = re.sub(ur"[^\u4e00-\u9fff]", " ", string)
+    string = re.sub(r"[^\u4e00-\u9fff]", " ", string)
     #string = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", string)
     #string = re.sub(r"\'s", " \'s", string)
     #string = re.sub(r"\'ve", " \'ve", string)
