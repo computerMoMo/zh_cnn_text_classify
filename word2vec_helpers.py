@@ -19,6 +19,7 @@ def output_vocab(vocab):
     for k, v in vocab.items():
         print(k)
 
+
 def embedding_sentences(sentences, embedding_size = 128, window = 5, min_count = 5, file_to_load = None, file_to_save = None):
     if file_to_load is not None:
         w2vModel = Word2Vec.load(file_to_load)
@@ -28,6 +29,8 @@ def embedding_sentences(sentences, embedding_size = 128, window = 5, min_count =
             w2vModel.save(file_to_save)
     all_vectors = []
     embeddingDim = w2vModel.vector_size
+    print("vector size:", embeddingDim)
+
     embeddingUnknown = [0 for i in range(embeddingDim)]
     for sentence in sentences:
         this_vector = []
@@ -61,7 +64,7 @@ def run_main():
  
     # check and process input arguments
     if len(sys.argv) < 4:
-        print globals()['__doc__'] % locals()
+        print (globals()['__doc__'] % locals())
         sys.exit(1)
     input_file, output_model_file, output_vector_file = sys.argv[1:4]
 
