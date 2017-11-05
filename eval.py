@@ -1,5 +1,4 @@
-#! /usr/bin/env python
-
+# -*- coding:utf-8 -*-
 import tensorflow as tf
 import numpy as np
 import os
@@ -8,18 +7,18 @@ import datetime
 import data_helpers
 import word2vec_helpers
 from text_cnn import TextCNN
-import csv
+import codecs
 
 # Parameters
 # ==================================================
 
 # Data Parameters
-tf.flags.DEFINE_string("input_text_file", "./data/spam_100.utf8", "Test text data source to evaluate.")
+tf.flags.DEFINE_string("input_text_file", "./data/test.txt", "Test text data source to evaluate.")
 tf.flags.DEFINE_string("input_label_file", "", "Label file for test text data source.")
 
 # Eval Parameters
-tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
-tf.flags.DEFINE_string("checkpoint_dir", "", "Checkpoint directory from training run")
+tf.flags.DEFINE_integer("batch_size", 1, "Batch Size (default: 64)")
+tf.flags.DEFINE_string("checkpoint_dir", "/home/momo/PycharmProjects/zh_cnn_text_classify/runs/1509858868/checkpoints", "Checkpoint directory from training run")
 tf.flags.DEFINE_boolean("eval_train", True, "Evaluate on all training data")
 
 # Misc Parameters
@@ -89,22 +88,24 @@ with graph.as_default():
         saver.restore(sess, checkpoint_file)
 
         # Get the placeholders from the graph by name
-        input_x = graph.get_operation_by_name("input_x").outputs[0]
-        # input_y = graph.get_operation_by_name("input_y").outputs[0]
-        dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
-
+        input_x = graph.get_tensor_by_name("input_x:0")
+        dropout_keep_prob = graph.get_tensor_by_name("dropout_keep_prob:0")
         # Tensors we want to evaluate
-        predictions = graph.get_operation_by_name("output/predictions").outputs[0]
+        predictions = graph.get_tensor_by_name("output/predictions:0")
+        dropout_feature = graph.get_tensor_by_name("dropout/dropout_feature/mul:0")
 
         # Generate batches for one epoch
         batches = data_helpers.batch_iter(list(x_test), FLAGS.batch_size, 1, shuffle=False)
 
         # Collect the predictions here
         all_predictions = []
+        all_features = []
 
         for x_test_batch in batches:
-            batch_predictions = sess.run(predictions, {input_x: x_test_batch, dropout_keep_prob: 1.0})
+            batch_predictions, batch_features = sess.run(fetches=[predictions, dropout_feature], feed_dict={input_x: x_test_batch, dropout_keep_prob: 1.0})
             all_predictions = np.concatenate([all_predictions, batch_predictions])
+            batch_features = np.asarray(batch_features).reshape((384,))
+            all_features.append(batch_features)
 
 # Print accuracy if y_test is defined
 if y_test is not None:
@@ -113,8 +114,13 @@ if y_test is not None:
     print("Accuracy: {:g}".format(correct_predictions/float(len(y_test))))
 
 # Save the evaluation to a csv
-predictions_human_readable = np.column_stack((np.array([text.encode('utf-8') for text in x_raw]), all_predictions))
-out_path = os.path.join(FLAGS.checkpoint_dir, "..", "prediction.csv")
-print("Saving evaluation to {0}".format(out_path))
-with open(out_path, 'w') as f:
-    csv.writer(f).writerows(predictions_human_readable)
+predictions_out = codecs.open("./data/predictions.txt", mode='w', encoding='utf-8')
+for item in all_predictions:
+    predictions_out.write(str(item) + "\n")
+predictions_out.close()
+
+features_out = codecs.open("./data/features.txt", mode='w', encoding='utf-8')
+for item in all_features:
+    item_list = list(item)
+    features_out.write(str(item_list)+"\n")
+features_out.close()
